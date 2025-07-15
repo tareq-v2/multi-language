@@ -11,4 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::call(function () {
     Artisan::call('app:update-offline-users');
 })->everyMinute();
+Schedule::call(function () {
+    Artisan::call('scraper:monitor');
+})->everyTenSeconds();
 

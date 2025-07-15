@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\WebsiteScraperController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -11,6 +12,13 @@ Route::get('/', function () {
 
 Route::get('/show/editor', [ImageController::class, 'showEditor'])->name('editor');
 Route::post('/process', [ImageController::class, 'processImage'])->name('process.image');
+
+
+
+Route::get('/scrape-websites', [WebsiteScraperController::class, 'showForm'])->name('scraper.form');
+Route::post('/scrape-websites', [WebsiteScraperController::class, 'processFile'])->name('scraper.process');
+Route::get('/scrape-results', [WebsiteScraperController::class, 'showResults'])->name('scraper.results');
+
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 

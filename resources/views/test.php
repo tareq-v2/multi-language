@@ -1,41 +1,117 @@
 <?php
 
-public function processImage(Request $request)
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use App\Models\ScrapedWebsite;
+use Symfony\Component\Process\Process;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
+
+class WebsiteScraperController extends Controller
 {
-    $request->validate([
-        'image' => [
-            'required',
-            'image',
-            'mimes:jpeg,png,jpg,webp',
-            'max:10240',
-            'dimensions:max_width=6000,max_height=6000'
-        ],
-        'operation' => 'required|in:grayscale,invert,edge,blur,pixelate,thermal,sepia,vignette,sharpen,contrast,brightness,color_boost,emboss,sketch,oil_paint'
-    ]);
+    public function showForm()
+    {
+        return view('scraper-form');
+    }
 
-    // ... existing directory setup ...
+    public function processFile(Request $request)
+    {
+        // Remove PHP execution time limit
+        set_time_limit(0);
+        ini_set('memory_limit', '1024M');
 
-    try {
-        // ... file storage code ...
+        $request->validate([
+            'url_file' => 'required|file|mimes:txt|max:10240'
+        ]);
 
-        $command = [
-            $pythonPath,
-            $pythonScript,
-            $fullUploadPath,
-            $outputPath,
-            $request->operation
-        ];
+        try {
+            // Store uploaded file
+            $file = $request->file('url_file');
+            $filePath = $file->store('url-uploads');
+            $fullFilePath = Storage::path($filePath);
 
-        // Add ALL optional parameters
-        $optionalParams = ['blur_radius', 'brightness_level', 'contrast_level', 'vignette_strength'];
-        foreach ($optionalParams as $param) {
-            if ($request->has($param)) {
-                array_push($command, "--$param", $request->$param);
+            // Python paths
+            $pythonPath = PHP_OS_FAMILY === 'Windows'
+                ? base_path('venv\Scripts\python.exe')
+                : base_path('venv/bin/python');
+
+            $pythonScript = base_path('python_scripts/website_scraper.py');
+
+            // Output file
+            $outputFilename = 'scraped_results_' . time() . '.json';
+            $outputPath = Storage::path('scraped-results/' . $outputFilename);
+
+            // Create directory if doesn't exist
+            $outputDir = dirname($outputPath);
+            if (!is_dir($outputDir)) {
+                mkdir($outputDir, 0755, true);
             }
+
+            // Build command
+            $command = [
+                $pythonPath,
+                $pythonScript,
+                $fullFilePath,
+                $outputPath
+            ];
+
+            // Execute Python script in background
+            $process = new Process($command);
+            $process->setTimeout(null); // No timeout
+            $process->setIdleTimeout(null);
+
+            // Run asynchronously
+            $process->start();
+
+            // Store process ID for monitoring
+            $pid = $process->getPid();
+            Storage::put('scraper_pids/'.$pid.'.txt', $pid);
+
+            return redirect()->route('scraper.results')
+                             ->with('success', 'Scraping started in background! PID: '.$pid);
+
+        } catch (\Exception $e) {
+            Log::error("File processing error: " . $e->getMessage());
+            return back()->with('error', 'Processing failed: ' . $e->getMessage());
+        }
+    }
+
+    private function saveResults($outputPath)
+    {
+        // Same as before
+    }
+
+    public function showResults()
+    {
+        $websites = ScrapedWebsite::paginate(20);
+        return view('scraper-results', compact('websites'));
+    }
+
+    public function checkStatus($pid)
+    {
+        $pidFile = 'scraper_pids/'.$pid.'.txt';
+
+        if (!Storage::exists($pidFile)) {
+            return response()->json(['status' => 'completed']);
         }
 
-        // ... process execution ...
-    } catch (\Exception $e) {
-        // ... error handling ...
+        // Check if process is still running
+        $command = PHP_OS_FAMILY === 'Windows'
+            ? "tasklist /FI \"PID eq $pid\""
+            : "ps -p $pid";
+
+        $process = new Process($command);
+        $process->run();
+
+        if (!$process->isSuccessful() || empty($process->getOutput())) {
+            Storage::delete($pidFile);
+            return response()->json(['status' => 'completed']);
+        }
+
+        return response()->json(['status' => 'running']);
     }
 }
