@@ -34,7 +34,7 @@ class WebsiteScraperController extends Controller
             $pythonPath = PHP_OS_FAMILY === 'Windows'
                 ? base_path('venv\Scripts\python.exe')
                 : base_path('venv/bin/python');
-            
+
             $pythonScript = base_path('python_scripts/website_scraper.py');
             Log::info("Python path: $pythonPath");
             Log::info("Script path: $pythonScript");
@@ -43,7 +43,7 @@ class WebsiteScraperController extends Controller
             if (!file_exists($pythonPath)) {
                 throw new \Exception("Python executable not found at: $pythonPath");
             }
-            
+
             // Verify Python script exists
             if (!file_exists($pythonScript)) {
                 throw new \Exception("Python script not found at: $pythonScript");
@@ -68,7 +68,7 @@ class WebsiteScraperController extends Controller
                 $fullFilePath,
                 $outputPath
             ];
-            
+
             // Create log file
             $logPath = Storage::path('scraper_logs/' . time() . '.log');
             $logDir = dirname($logPath);
@@ -79,20 +79,20 @@ class WebsiteScraperController extends Controller
             // Run command with detailed logging
             $process = new Process($command);
             $process->setTimeout(null);
-            
+
             // Capture all output
             $process->start();
             $process->wait();
-            
+
             // Log process output
             $output = $process->getOutput();
             $errorOutput = $process->getErrorOutput();
             $exitCode = $process->getExitCode();
-            
+
             Log::info("Python exit code: $exitCode");
             Log::info("Python output:\n" . $output);
             Log::info("Python errors:\n" . $errorOutput);
-            
+
             // Save output to log file
             file_put_contents($logPath, "EXIT CODE: $exitCode\n\nOUTPUT:\n$output\n\nERRORS:\n$errorOutput");
 
@@ -100,15 +100,15 @@ class WebsiteScraperController extends Controller
             if ($exitCode !== 0) {
                 throw new \Exception("Python script failed with exit code $exitCode. Check log: " . basename($logPath));
             }
-            
+
             // Check if output file was created
             if (!file_exists($outputPath)) {
                 throw new \Exception("Output file not created at: $outputPath");
             }
-            
+
             // Import results
             $this->saveResults($outputPath);
-            
+
             return redirect()->route('scraper.results')
                 ->with('success', 'Scraping completed successfully!')
                 ->with('log_file', basename($logPath));
@@ -123,17 +123,17 @@ class WebsiteScraperController extends Controller
     private function saveResults($outputPath)
     {
         Log::info("Starting result import from: $outputPath");
-        
+
         if (!file_exists($outputPath)) {
             throw new \Exception("Result file not found at: $outputPath");
         }
 
         $json = file_get_contents($outputPath);
-        
+        dd($json);
         if (empty($json)) {
             throw new \Exception("Result file is empty");
         }
-        
+
         Log::info("Loaded JSON content, size: " . strlen($json) . " bytes");
 
         $results = json_decode($json, true);
@@ -144,20 +144,20 @@ class WebsiteScraperController extends Controller
             Log::error("JSON snippet: " . substr($json, 0, 500));
             throw new \Exception($errorMsg);
         }
-        
+
         Log::info("Decoded JSON, found " . count($results) . " records");
 
         DB::transaction(function () use ($results) {
             $count = 0;
             $errors = 0;
-            
+
             foreach ($results as $result) {
                 try {
                     if (empty($result['url'])) {
                         Log::warning("Skipping record without URL: " . json_encode($result));
                         continue;
                     }
-                    
+
                     ScrapedWebsite::updateOrCreate(
                         ['url' => $result['url']],
                         [
@@ -175,7 +175,7 @@ class WebsiteScraperController extends Controller
                     Log::error("Failed to save record for {$result['url']}: " . $e->getMessage());
                 }
             }
-            
+
             Log::info("Imported $count records with $errors errors");
         });
     }
@@ -185,20 +185,20 @@ class WebsiteScraperController extends Controller
         $websites = ScrapedWebsite::paginate(20);
         return view('scraper-results', compact('websites'));
     }
-    
+
     public function showForm()
     {
         return view('scraper-form');
     }
-    
+
     public function showLog($filename)
     {
         $logPath = Storage::path('scraper_logs/' . $filename);
-        
+
         if (!file_exists($logPath)) {
             abort(404, 'Log file not found');
         }
-        
+
         return response()->file($logPath);
     }
 }

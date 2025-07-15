@@ -9,6 +9,8 @@ import AdminDashboard from './components/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import Chat from './components/Chat.jsx';
 import Chatbox from './components/Chatbox.jsx';
+import MoodHistory from './components/playlists/MoodHistory.jsx';
+import PlaylistResult from './components/playlists/PlaylistResult.jsx';
 
 function App() {
   return (
@@ -17,6 +19,8 @@ function App() {
         <Route path="/" element={<Layout><Home /></Layout>} />
         <Route path="/login" element={<Layout><Login /></Layout>} />
         <Route path="/register" element={<Layout><Register /></Layout>} />
+        <Route path="/mood/history" element={<Layout><MoodHistory  /></Layout>} />
+        <Route path="/playlists/result" element={<Layout><PlaylistResult /></Layout>} />
         <Route
           path="/admin-dashboard"
           element={

@@ -5,6 +5,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\WebsiteScraperController;
+use App\Http\Controllers\MoodController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -13,6 +14,8 @@ Route::get('/', function () {
 Route::get('/show/editor', [ImageController::class, 'showEditor'])->name('editor');
 Route::post('/process', [ImageController::class, 'processImage'])->name('process.image');
 
+Route::post('/mood/analyze', [MoodController::class, 'analyze']);
+Route::get('/mood/history', [MoodController::class, 'history']);
 
 
 Route::get('/scrape-websites', [WebsiteScraperController::class, 'showForm'])->name('scraper.form');

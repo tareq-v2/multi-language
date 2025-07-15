@@ -24,7 +24,6 @@ logging.basicConfig(
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def get_website_info(url):
-    print(url)
     result = {
         'url': url,
         'title': None,
